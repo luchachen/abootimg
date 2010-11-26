@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+
+initrd=${1:-initrd.img}
+
+if [ -d ramdisk ]; then
+    echo "ramdisk/ already exists."
+    exit 1
+fi
+
+mkdir ramdisk
+
+zcat $initrd | ( cd ramdisk; cpio -i )
+

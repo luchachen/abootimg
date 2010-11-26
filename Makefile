@@ -1,13 +1,17 @@
 
-all: abootimg
+all: unpack_bootimg make_bootimg
 
-abootimg: abootimg.c bootimg.h
-	gcc -g -O2 -Wno-unused-result -o abootimg abootimg.c -DHAS_BLKID -lblkid
+unpack_bootimg: unpack_bootimg.c bootimg.h
+	gcc -O2 -o unpack_bootimg unpack_bootimg.c
+
+make_bootimg: make_bootimg.c bootimg.h
+	gcc -O2 -o make_bootimg make_bootimg.c
+
 
 clean:
-	rm -f abootimg abootimg-static
+	rm -f unpack_bootimg
+	rm -f make_bootimg
 
 archive: clean
-	cd ..; tar cvzf abootimg.tar.gz abootimg --exclude tests --exclude tmp
-
+	cd .. && tar cvzf bootimg.tar.gz bootimg
 
