@@ -44,6 +44,7 @@
 
 #if defined(__APPLE__)
 # include <sys/disk.h> /* DKIOCGETBLOCKCOUNT */
+# include "fmemopen/fmemopen.h"
 #endif
 
 

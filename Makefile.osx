@@ -1,0 +1,27 @@
+
+CPPFLAGS=
+CFLAGS=-O3 -Wall
+LDLIBS=
+
+all: abootimg
+
+version.h:
+	if [ ! -f version.h ]; then \
+	if [ -d .git ]; then \
+	echo '#define VERSION_STR "$(shell git describe --tags --abbrev=0)"' > version.h; \
+	else \
+	echo '#define VERSION_STR ""' > version.h; \
+	fi \
+	fi
+
+fmemopen/fmemopen.o: fmemopen/fmemopen.c
+
+abootimg.o: bootimg.h version.h
+
+abootimg: abootimg.o fmemopen/fmemopen.o
+
+clean:
+	rm -f abootimg *.o version.h
+
+.PHONY:	clean all
+
