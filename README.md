@@ -1,50 +1,43 @@
  abootimg - manipulate Android Boot Images.
- ------------------------------------------
+===========================================
 
  (c) 2010 Gilles Grandou <gilles@grandou.net>
 
 
 
-* Android Boot Images
----------------------
-
+Android Boot Images
+-------------------
 
 It a special partition format defined by the Android Open Source Porject.
 See bootimg.h in the source tree for more information about the structure.
 
 It's used by Android Bootloaders to boot the OS. 
 
-Boot images mainly convey:
+Boot images generally include:
 - a kernel image
 - a ramdisk image 
 - optionaly, a 2nd stage bootloader
-- the cmdline passed to the kernel when booting.
+- the command line passed to the kernel when booting.
 
-The official tool used to create boot images is part of the Android Project,
-available here:
+The official tool, [mkbootimg](https://android.googlesource.com/platform/system/core/+/master/mkbootimg/) used to create boot images is part of the [Android Project](https://android.googlesource.com).
 
-	http://android.git.kernel.org/?p=platform/system/core.git;a=tree;f=mkbootimg
-
-
-abootimg can work directly on block devices, or, the safest way,  on a file image.
+abootimg can work directly on block devices, or, more safely, on a file image.
 File images can be read/written with dd:
 
 	$ dd if=/dev/mmcblk0p2 of=boot.img
 	$ dd if=boot.img of=/dev/mmcblk0p2
 
-You obviously need to have right access to the block device (using su, sudo, 
-...).
+You obviously need to have the rights to use the block device.
 
-
-Android Boot Image contains an 32 bytes Id. The specification does not actually 
-mandates any specific implementation of this Id (it can be a timestamp, a CRC 
-checksum, a SHA hash, ...). Bootloader appears to do nothing of this Id, it's 
+Android boot images contain a 32-byte ID. The specification does not actually 
+mandates any specific implementation of this ID (it can be a timestamp, a CRC 
+checksum, a SHA hash, ...). The bootloader appears to do nothing of this ID, it's 
 solely here for tracking purpose. Currently abootimg does nothing with it, it's 
 never touched/modified.
 
 
 
-* Building abootimg
+Building abootimg
 -------------------
 
 On a linux system, it's simply as:
@@ -55,8 +48,15 @@ blkid library is needed to perform some sanity checks when writing boot image
 directly on a block device (to avoid writing a valid existing filesystem).
 
 
+On Mac OS X, just do:
 
-* Looking at an Android Boot Image
+	$ make -f Makefile.osx
+
+ Jeff Verkoeyen's [fmemopen for BSD systems](https://github.com/jverkoey/fmemopen)
+ has been included as a squashed subtree.
+
+
+Looking at an Android Boot Image
 ----------------------------------
 
 Basic Information can be extracted from a boot image, using:
@@ -92,19 +92,18 @@ Here is an example:
 
 
 
-* Extracting elements from an Android Boot Image
+Extracting elements from an Android Boot Image
 ------------------------------------------------
 
-All parts of boot image can be extracted with:
+All parts of the boot image can be extracted with:
 
 	$ abootimg -x <bootimg> [<bootimg.cfg> [<kernel> [<ramdisk> [<secondstage>]]]]
 
-Parts name are optional. Default ones are used if none are given:
-
-	* bootimg.cfg for the configuration file
-        * zImage for the Kernel image
-	* initrd.img for the Ramdisk
-	* stage2.img for the Second Stage image
+Parts name are optional. Defaults are used if none are given:
+* bootimg.cfg for the configuration file
+* zImage for the kernel image
+* initrd.img for the ramdisk
+* stage2.img for the second stage image
 
 Here is an example:
 
@@ -115,7 +114,7 @@ Here is an example:
 
 
 
-* Boot Configuration file
+Boot Configuration file
 -------------------------
 
 It's an editable ascii file which is basically a dump of the header content, 
@@ -125,43 +124,24 @@ Each entry takes one line and is in the form of:
 
 	<entry> = <value>
 
-You can put any number of spaces/tab before/after the =
-<value> is evalued starting from the fisrt non space character following the = 
-until the end of line
+You can put any number of spaces/tab before/after the `=` sign.  `<value>` is evaluated starting from the fisrt non space character following the `=` until the end of line.
 
 Numerical values can be given in decimal (12345) or hexadecimal (0x1234abcd).
 
 Known configuration entries are:
 
-	* bootsize
+* `bootsize` The size of the boot image to produce.
 
-	  Indicate the size of the boot image to produce
+* `pagesize` All sizes have to be a multiple of the page size.  The standard page size is 2048 bytes. I don't know if other page sizes are supported by Android bootloader.
 
+* `kerneladdr, ramdiskaddr, secondaddr, tagsaddr` Address in RAM used to load the kernel, ramdisk, 2nd stage bootloader, and tags table.
 
-	* pagesize
+* `name` Name given to the boot image. Not used by the bootloader, but it can be useful to keep track of what the image actually contains.
 
-	  All sizes have to be a multiple of the page size.
-	  Standard page size is 2048 bytes. I don't know if other page size 
-	  are supported by Android bootloader
-
-	* kerneladdr, ramdiskaddr, secondaddr, tagsaddr
-
-	  Address in RAM used to load the kernel, ramdisk, 2nd stage 
-	  bootloader, and tags table.
-
-	* name
-
-	  name given to the boot image.
-	  not really used by bootloader, but it's can be usefull to keep 
-	  track of what the image actually contains
-
-	* cmdline 
-	
-	  contains the command line passed to the kernel when booting
+* `cmdline` The command line passed to the kernel when booting
 	 
-
 	
-* Updating an existing Android Boot Image
+Updating an existing Android Boot Image
 -----------------------------------------
 
 
@@ -171,7 +151,6 @@ An existing valid Boot Image can be updated with:
 	$ abootimg -u <bootimg> [-c "param=value"] [-f <bootimg.cfg>] [-k <kernel>] [-r <ramdisk>] [-s <secondstage>]
 
 Any part of the image can be individully updated. As an example:
-
 
 	$ abootimg -u boot.img -k zImage.new
 
@@ -213,34 +192,31 @@ As an example:
 		transform it to fit inside part05)
 
 
-The original boot image has to be valid, otherwise abootimg will refuse to 
+The original boot image has to be valid, or abootimg will refuse to 
 update it.
 
 
 
 
-* Creating a new Android Boot Image from scratch
+Creating a new Android Boot Image from scratch
 ------------------------------------------------
 
 
-A new boot image can be create with:
+A new boot image can be created with:
 
 	$ abootimg --create <bootimg> [-c "param=value"] [-f <bootimg.cfg>] -k <kernel> -r <ramdisk> [-s <secondstage>]
 
-Parameters are the same than above for update. The only difference is that 
-kernel and ramdisk are mandatory.
+Parameters are the same as for updating an image; the only difference is that specifying the
+kernel and ramdisk is mandatory.
 
 
 
-* Working directly of Block Devices
+Working directly of Block Devices
 -----------------------------------
 
 
-Instead of manipulating Boot Image regular file, you can work directly on boot 
+Instead of manipulating boot images as regular files, you can work directly on
 block device.
-
-Note that, on AC100, the current kernel needs to be patched in order to have 
-direct access to boot partitions (partitions 5 and 6).
 
 Some examples:
 
@@ -264,21 +240,20 @@ Some examples:
 If abootimg has to write to a block device (-u and --create), some sanity 
 check are performed:
 
-	* you oviously need read/write access to the block device (so use su, 
-	  sudo, ...)
+	* you need read/write access to the block device,
 
 	* the actual partition must not be identified as containing a valid 
-	  filesystem as recognised by blkid library. Specifically, it cannot 
-	  contains a ext2/3 filesystem (this avoids you to ovewrite your root 
-	  filesystem by mistake)
+	  filesystem as recognised by blkid library (specifically, it cannot 
+	  contains a ext2/3 filesystem -- this avoids overwriting the
+	  root filesystem accidentally),
 
-	* the updated/created boot image has to be same size than the block 
-	  device you try to write on.
+	* the updated/created boot image has to be same size as the block 
+	  device you try to write on,
 
-	* in case of update, the current boot partition has to contain a valid 
+	* if abootimg is in update mode , the current boot partition has to contain a valid 
 	  Android Boot Image.
 	  
-Failing any of these tests will abort the operation on block device.
+Failing any of these tests will abort the operation on the block device.
 
 It's by definition more risky to manipulate block device, as a bad 
 manipulation can as bad manipulation can make your system unbootable if you
