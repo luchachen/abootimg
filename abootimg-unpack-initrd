@@ -1,5 +1,4 @@
 #!/bin/sh
-#
 
 initrd=${1:-initrd.img}
 ramdisk=${2:-ramdisk}
@@ -16,5 +15,5 @@ fi
 
 mkdir -p $ramdisk
 
-zcat $initrd | ( cd $ramdisk; cpio -i )
+gunzip -c $initrd | ( cd $ramdisk; cpio -i )
 
