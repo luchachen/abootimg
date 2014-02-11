@@ -4,6 +4,8 @@
  (c) 2010 Gilles Grandou <gilles@grandou.net>
 
 
+NOTE: Gilles's code makes assumptions about the structure of the boot image header that are not valid for all devices (mainly due to Android fragmentation since 2010). You should unpack and repack the boot image you're working with and do a binary diff of the repacked image with the original to verify abootimg roundtrips. -dlg
+
 
 Android Boot Images
 -------------------
