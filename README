@@ -80,6 +80,7 @@ Here is an example:
 
 	* kernel size       = 3002744 bytes (2.86 MB)
 	  ramdisk size      = 1639626 bytes (1.56 MB)
+          dt size           = 1064960 bytes (1.02 MB)
 
 	* load addresses:
 	  kernel:       0x10008000
@@ -105,6 +106,7 @@ Parts name are optional. Default ones are used if none are given:
         * zImage for the Kernel image
 	* initrd.img for the Ramdisk
 	* stage2.img for the Second Stage image
+        * dt.img for kernel dt image
 
 Here is an example:
 
@@ -168,7 +170,7 @@ Known configuration entries are:
 An existing valid Boot Image can be updated with:
 
 
-	$ abootimg -u <bootimg> [-c "param=value"] [-f <bootimg.cfg>] [-k <kernel>] [-r <ramdisk>] [-s <secondstage>]
+	$ abootimg -u <bootimg> [-c "param=value"] [-f <bootimg.cfg>] [-k <kernel>] [-r <ramdisk>] [-s <secondstage>] [ --dt <dt> ]
 
 Any part of the image can be individully updated. As an example:
 
@@ -225,7 +227,7 @@ update it.
 
 A new boot image can be create with:
 
-	$ abootimg --create <bootimg> [-c "param=value"] [-f <bootimg.cfg>] -k <kernel> -r <ramdisk> [-s <secondstage>]
+	$ abootimg --create <bootimg> [-c "param=value"] [-f <bootimg.cfg>] -k <kernel> -r <ramdisk> [-s <secondstage>] [ --dt <dt> ]
 
 Parameters are the same than above for update. The only difference is that 
 kernel and ramdisk are mandatory.
