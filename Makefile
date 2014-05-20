@@ -1,9 +1,13 @@
 
 CPPFLAGS=-DHAS_BLKID
 CFLAGS=-O3 -Wall
-LDLIBS=-lblkid
+LDFLAGS= -L .
+LDLIBS=-lblkid -lmincrypt
 
 all: abootimg
+
+libmincrypt.a:
+	make -C libmincrypt
 
 version.h:
 	if [ ! -f version.h ]; then \
@@ -14,10 +18,11 @@ version.h:
 	fi \
 	fi
 
-abootimg.o: bootimg.h version.h
+abootimg.o: bootimg.h version.h libmincrypt.a
 
 clean:
-	rm -f abootimg *.o version.h
+	make -C libmincrypt clean
+	rm -f abootimg *.o version.h libmincrypt.a
 
 .PHONY:	clean all
 

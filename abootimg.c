@@ -51,6 +51,7 @@
 #include <blkid/blkid.h>
 #endif
 
+#include "mincrypt/sha.h"
 #include "version.h"
 #include "bootimg.h"
 
@@ -519,6 +520,8 @@ void update_header(t_abootimg* img)
 
 void update_images(t_abootimg *img)
 {
+  SHA_CTX ctx;
+  uint8_t* sha;
   unsigned page_size = img->header.page_size;
   unsigned ksize = img->header.kernel_size;
   unsigned rsize = img->header.ramdisk_size;
@@ -652,6 +655,24 @@ void update_images(t_abootimg *img)
     img->header.dt_size = dsize;
     img->dt = d;
   }
+
+  /* put a hash of the contents in the header so boot images can be
+   * differentiated based on their first 2k.
+   */
+  SHA_init(&ctx);
+  SHA_update(&ctx, img->kernel, img->header.kernel_size);
+  SHA_update(&ctx, &img->header.kernel_size, sizeof(img->header.kernel_size));
+  SHA_update(&ctx, img->ramdisk, img->header.ramdisk_size);
+  SHA_update(&ctx, &img->header.ramdisk_size, sizeof(img->header.ramdisk_size));
+  SHA_update(&ctx, img->second, img->header.second_size);
+  SHA_update(&ctx, &img->header.second_size, sizeof(img->header.second_size));
+  if(img->dt) {
+      SHA_update(&ctx, img->dt, img->header.dt_size);
+      SHA_update(&ctx, &img->header.dt_size, sizeof(img->header.dt_size));
+  }
+  sha = SHA_final(&ctx);
+  memcpy(img->header.id, sha,
+         SHA_DIGEST_SIZE > sizeof(img->header.id) ? sizeof(img->header.id) : SHA_DIGEST_SIZE);
 
   n = (img->header.kernel_size + page_size - 1) / page_size;
   m = (img->header.ramdisk_size + page_size - 1) / page_size;
