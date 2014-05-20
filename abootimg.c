@@ -75,6 +75,7 @@ typedef struct
   char*        kernel_fname;
   char*        ramdisk_fname;
   char*        second_fname;
+  char*        dt_fname;
 
   FILE*        stream;
 
@@ -83,6 +84,7 @@ typedef struct
   char*        kernel;
   char*        ramdisk;
   char*        second;
+  char*        dt;
 } t_abootimg;
 
 
@@ -163,7 +165,7 @@ void print_usage(void)
  "\n"
  "      bootimg has to be valid Android Boot Image, or the update will abort.\n"
  "\n"
- " abootimg --create <bootimg> [-c \"param=value\"] [-f <bootimg.cfg>] -k <kernel> -r <ramdisk> [-s <secondstage>]\n"
+ " abootimg --create <bootimg> [-c \"param=value\"] [-f <bootimg.cfg>] -k <kernel> -r <ramdisk> [-s <secondstage>] [ --dt <dtfilename>] \n"
  "\n"
  "      create a new image from scratch.\n"
  "      if the boot image file is a block device, sanity check will be performed to avoid overwriting a existing\n"
@@ -214,7 +216,7 @@ enum command parse_args(int argc, char** argv, t_abootimg* img)
       break;
       
     case extract:
-      if ((argc < 3) || (argc > 7))
+      if ((argc < 3) || (argc > 8))
         return none;
       img->fname = argv[2];
       if (argc >= 4)
@@ -225,6 +227,8 @@ enum command parse_args(int argc, char** argv, t_abootimg* img)
         img->ramdisk_fname = argv[5];
       if (argc >= 7)
         img->second_fname = argv[6];
+      if (argc >= 8)
+        img->dt_fname = argv[7];
       break;
 
     case update:
@@ -236,6 +240,7 @@ enum command parse_args(int argc, char** argv, t_abootimg* img)
       img->kernel_fname = NULL;
       img->ramdisk_fname = NULL;
       img->second_fname = NULL;
+      img->dt_fname = NULL;
       for(i=3; i<argc; i++) {
         if (!strcmp(argv[i], "-c")) {
           if (++i >= argc)
@@ -265,6 +270,11 @@ enum command parse_args(int argc, char** argv, t_abootimg* img)
           if (++i >= argc)
             return none;
           img->second_fname = argv[i];
+        }
+        else if (!strcmp(argv[i], "--dt")) {
+          if (++i >= argc)
+            return none;
+          img->dt_fname = argv[i];
         }
         else
           return none;
@@ -303,8 +313,9 @@ int check_boot_img_header(t_abootimg* img)
   unsigned n = (img->header.kernel_size + page_size - 1) / page_size;
   unsigned m = (img->header.ramdisk_size + page_size - 1) / page_size;
   unsigned o = (img->header.second_size + page_size - 1) / page_size;
+  unsigned p = (img->header.dt_size + page_size - 1) / page_size;
 
-  unsigned total_size = (1+n+m+o)*page_size;
+  unsigned total_size = (1+n+m+o+p)*page_size;
 
   if (total_size > img->size) {
     fprintf(stderr, "%s: sizes mismatches in boot image\n", img->fname);
@@ -512,6 +523,7 @@ void update_images(t_abootimg *img)
   unsigned ksize = img->header.kernel_size;
   unsigned rsize = img->header.ramdisk_size;
   unsigned ssize = img->header.second_size;
+  unsigned dsize = img->header.dt_size;
 
   if (!page_size)
     abort_printf("%s: Image page size is null\n", img->fname);
@@ -519,9 +531,11 @@ void update_images(t_abootimg *img)
   unsigned n = (ksize + page_size - 1) / page_size;
   unsigned m = (rsize + page_size - 1) / page_size;
   unsigned o = (ssize + page_size - 1) / page_size;
+  unsigned p = (dsize + page_size - 1) / page_size;
 
   unsigned roffset = (1+n)*page_size;
   unsigned soffset = (1+n+m)*page_size;
+  unsigned doffset = (1+n+m+p)*page_size;
 
   if (img->kernel_fname) {
     printf("reading kernel from %s\n", img->kernel_fname);
@@ -617,10 +631,33 @@ void update_images(t_abootimg *img)
     img->second = s;
   }
 
+  if (img->dt_fname) {
+    printf("reading dt image from %s\n", img->dt_fname);
+    FILE* stream = fopen(img->dt_fname, "r");
+    if (!stream)
+      abort_perror(img->dt_fname);
+    struct stat st;
+    if (fstat(fileno(stream), &st))
+      abort_perror(img->dt_fname);
+    dsize = st.st_size;
+    char* d = malloc(dsize);
+    if (!d)
+      abort_perror("");
+    size_t rb = fread(d, dsize, 1, stream);
+    if ((rb!=1) || ferror(stream))
+      abort_perror(img->dt_fname);
+    else if (feof(stream))
+      abort_printf("%s: cannot read dt image\n", img->dt_fname);
+    fclose(stream);
+    img->header.dt_size = dsize;
+    img->dt = d;
+  }
+
   n = (img->header.kernel_size + page_size - 1) / page_size;
   m = (img->header.ramdisk_size + page_size - 1) / page_size;
   o = (img->header.second_size + page_size - 1) / page_size;
-  unsigned total_size = (1+n+m+o)*page_size;
+  p = (img->header.dt_size + page_size - 1) / page_size;
+  unsigned total_size = (1+n+m+o+p)*page_size;
 
   if (!img->size)
     img->size = total_size;
@@ -644,7 +681,7 @@ void write_bootimg(t_abootimg* img)
 
   unsigned n = (img->header.kernel_size + psize - 1) / psize;
   unsigned m = (img->header.ramdisk_size + psize - 1) / psize;
-  //unsigned o = (img->header.second_size + psize - 1) / psize;
+  unsigned o = (img->header.second_size + psize - 1) / psize;
 
   if (fseek(img->stream, 0, SEEK_SET))
     abort_perror(img->fname);
@@ -693,6 +730,19 @@ void write_bootimg(t_abootimg* img)
       abort_perror(img->fname);
   }
 
+  if (img->header.dt_size) {
+    if (fseek(img->stream, (1+n+m+o)*psize, SEEK_SET))
+      abort_perror(img->fname);
+
+    fwrite(img->dt, img->header.dt_size, 1, img->stream);
+    if (ferror(img->stream))
+      abort_perror(img->fname);
+
+    fwrite(padding, psize - (img->header.dt_size % psize), 1, img->stream);
+    if (ferror(img->stream))
+      abort_perror(img->fname);
+  }
+
   ftruncate (fileno(img->stream), img->size);
 
   free(padding);
@@ -714,12 +764,14 @@ void print_bootimg_info(t_abootimg* img)
   unsigned kernel_size = img->header.kernel_size;
   unsigned ramdisk_size = img->header.ramdisk_size;
   unsigned second_size = img->header.second_size;
+  unsigned dt_size = img->header.dt_size;
 
   printf ("* kernel size       = %u bytes (%.2f MB)\n", kernel_size, (double)kernel_size/0x100000);
   printf ("  ramdisk size      = %u bytes (%.2f MB)\n", ramdisk_size, (double)ramdisk_size/0x100000);
   if (second_size)
     printf ("  second stage size = %u bytes (%.2f MB)\n", ramdisk_size, (double)ramdisk_size/0x100000);
  
+  printf ("  dt size           = %u bytes (%.2f MB)\n", dt_size, (double)dt_size/0x100000);
   printf ("\n* load addresses:\n");
   printf ("  kernel:       0x%08x\n", img->header.kernel_addr);
   printf ("  ramdisk:      0x%08x\n", img->header.ramdisk_addr);
@@ -848,7 +900,7 @@ void extract_second(t_abootimg* img)
 
   printf ("extracting second stage image in %s\n", img->second_fname);
 
-  void* s = malloc(ksize);
+  void* s = malloc(ssize);
   if (!s)
     abort_perror(NULL);
 
@@ -871,6 +923,44 @@ void extract_second(t_abootimg* img)
   free(s);
 }
 
+void extract_dt(t_abootimg* img)
+{
+  unsigned psize = img->header.page_size;
+  unsigned ksize = img->header.kernel_size;
+  unsigned rsize = img->header.ramdisk_size;
+  unsigned ssize = img->header.second_size;
+  unsigned dsize = img->header.dt_size;
+
+  if (!dsize) // dt  not present
+    return;
+
+  unsigned n = (ssize + rsize + ksize + psize - 1) / psize;
+  unsigned doffset = (1+n)*psize;
+
+  printf ("extracting dt image in %s\n", img->dt_fname);
+
+  void* d = malloc(dsize);
+  if (!d)
+    abort_perror(NULL);
+
+  if (fseek(img->stream, doffset, SEEK_SET))
+    abort_perror(img->fname);
+
+  size_t rb = fread(d, dsize, 1, img->stream);
+  if ((rb!=1) || ferror(img->stream))
+    abort_perror(img->fname);
+ 
+  FILE* dt_file = fopen(img->dt_fname, "w");
+  if (!dt_file)
+    abort_perror(img->dt_fname);
+
+  fwrite(d, dsize, 1, dt_file);
+  if (ferror(dt_file))
+    abort_perror(img->dt_fname);
+
+  fclose(dt_file);
+  free(d);
+}
 
 
 t_abootimg* new_bootimg()
@@ -885,6 +975,7 @@ t_abootimg* new_bootimg()
   img->kernel_fname = "zImage";
   img->ramdisk_fname = "initrd.img";
   img->second_fname = "stage2.img";
+  img->dt_fname = "dt.img";
 
   memcpy(img->header.magic, BOOT_MAGIC, BOOT_MAGIC_SIZE);
   img->header.page_size = 2048;  // a sensible default page size
@@ -921,6 +1012,7 @@ int main(int argc, char** argv)
       extract_kernel(bootimg);
       extract_ramdisk(bootimg);
       extract_second(bootimg);
+      extract_dt(bootimg);
       break;
     
     case update:
