@@ -916,8 +916,10 @@ void extract_second(t_abootimg* img)
   if (!ssize) // Second Stage not present
     return;
 
-  unsigned n = (rsize + ksize + psize - 1) / psize;
-  unsigned soffset = (1+n)*psize;
+  unsigned n = (ksize + psize - 1) / psize;
+  unsigned m = (rsize + psize - 1) / psize;
+
+  unsigned soffset = (1+n+m)*psize;
 
   printf ("extracting second stage image in %s\n", img->second_fname);
 
@@ -955,10 +957,13 @@ void extract_dt(t_abootimg* img)
   if (!dsize) // dt  not present
     return;
 
-  unsigned n = (ssize + rsize + ksize + psize - 1) / psize;
-  unsigned doffset = (1+n)*psize;
+  unsigned n = (ksize + psize - 1) / psize;
+  unsigned m = (rsize + psize - 1) / psize;
+  unsigned o = (ssize + psize - 1) / psize;
 
-  printf ("extracting dt image in %s\n", img->dt_fname);
+  unsigned doffset = (1+n+m+o)*psize;
+
+  printf ("extracting dt image in %s %d\n", img->dt_fname, dsize);
 
   void* d = malloc(dsize);
   if (!d)
@@ -971,7 +976,7 @@ void extract_dt(t_abootimg* img)
   if ((rb!=1) || ferror(img->stream))
     abort_perror(img->fname);
  
-  FILE* dt_file = fopen(img->dt_fname, "w");
+  FILE* dt_file = fopen(img->dt_fname, "wb");
   if (!dt_file)
     abort_perror(img->dt_fname);
 
@@ -1021,13 +1026,13 @@ int main(int argc, char** argv)
       break;
 
     case info:
-      open_bootimg(bootimg, "r");
+      open_bootimg(bootimg, "rb");
       read_header(bootimg);
       print_bootimg_info(bootimg);
       break;
 
     case extract:
-      open_bootimg(bootimg, "r");
+      open_bootimg(bootimg, "rb");
       read_header(bootimg);
       write_bootimg_config(bootimg);
       extract_kernel(bootimg);
@@ -1037,7 +1042,7 @@ int main(int argc, char** argv)
       break;
     
     case update:
-      open_bootimg(bootimg, "r+");
+      open_bootimg(bootimg, "r+b");
       read_header(bootimg);
       update_header(bootimg);
       update_images(bootimg);
@@ -1050,7 +1055,7 @@ int main(int argc, char** argv)
         break;
       }
       check_if_block_device(bootimg);
-      open_bootimg(bootimg, "w");
+      open_bootimg(bootimg, "wb");
       update_header(bootimg);
       update_images(bootimg);
       if (check_boot_img_header(bootimg))
