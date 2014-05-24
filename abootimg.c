@@ -777,7 +777,18 @@ void print_bootimg_info(t_abootimg* img)
 
   printf ("* file name = %s %s\n\n", img->fname, img->is_blkdev ? "[block device]":"");
 
-  printf ("* image size = %u bytes (%.2f MB)\n", img->size, (double)img->size/0x100000);
+  if (img->is_blkdev)
+      printf ("* image size = %u bytes (%.2f MB)\n", img->size, (double)img->size/0x100000);
+  else {
+      unsigned page_size  = img->header.page_size;
+      unsigned n = (img->header.kernel_size + page_size - 1) / page_size;
+      unsigned m = (img->header.ramdisk_size + page_size - 1) / page_size;
+      unsigned o = (img->header.second_size + page_size - 1) / page_size;
+      unsigned p = (img->header.dt_size + page_size - 1) / page_size;
+
+      unsigned total_size = (1+n+m+o+p)*page_size;
+      printf ("* image size = %u bytes (%.2f MB)\n", total_size, (double)total_size/0x100000);
+  }
   printf ("  page size  = %u bytes\n\n", img->header.page_size);
 
   printf ("* Boot Name = \"%s\"\n\n", img->header.name);
@@ -822,7 +833,15 @@ void write_bootimg_config(t_abootimg* img)
   if (!config_file)
     abort_perror(img->config_fname);
 
-  fprintf(config_file, "bootsize = 0x%x\n", img->size);
+  //fprintf(config_file, "bootsize = 0x%x\n", img->size);
+  unsigned page_size  = img->header.page_size;
+  unsigned n = (img->header.kernel_size + page_size - 1) / page_size;
+  unsigned m = (img->header.ramdisk_size + page_size - 1) / page_size;
+  unsigned o = (img->header.second_size + page_size - 1) / page_size;
+  unsigned p = (img->header.dt_size + page_size - 1) / page_size;
+
+  unsigned total_size = (1+n+m+o+p)*page_size;
+  fprintf(config_file, "bootsize = 0x%x\n", total_size);
   fprintf(config_file, "pagesize = 0x%x\n", img->header.page_size);
 
   fprintf(config_file, "kerneladdr = 0x%x\n", img->header.kernel_addr);
