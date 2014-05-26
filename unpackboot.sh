@@ -14,9 +14,9 @@ if [[ $(($size-$cfgsize)) -eq $pagesize ]];then
   echo "signed = true" > signed.cfg
 fi 
 
-type=`file initrd.img`
+stype=`file initrd.img`
 echo "type =" > type.cfg
-if [[ $type != "initrd.img: gzip compressed data"* ]]
+if [[ $stype != "initrd.img: gzip compressed data"* ]]
 then
     echo "type: mtk"
     dd if=initrd.img skip=1 of=xx.img
