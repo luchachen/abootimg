@@ -4,17 +4,17 @@ if [ -z "$src" ];then
     src=boot.img
 fi
 
-abootimg -x "$src"
+abootimg -x "$src" || exit 0
 
-size=$((`stat -c '%s' "$src"`))
-cfgsize=$((`sed  -n -r -e 's/(bootsize = )(0x.*)/\2/p' bootimg.cfg `))
-pagesize=$((`sed  -n -r -e 's/(pagesize = )(0x.*)/\2/p' bootimg.cfg `))
+size=$(($(stat -c '%s' "$src")))
+cfgsize=$(($(sed  -n -r -e 's/(bootsize = )(0x.*)/\2/p' bootimg.cfg )))
+pagesize=$(($(sed  -n -r -e 's/(pagesize = )(0x.*)/\2/p' bootimg.cfg )))
 echo "signed = false" > signed.cfg
 if [[ $(($size-$cfgsize)) -eq $pagesize ]];then
   echo "signed = true" > signed.cfg
 fi 
 
-stype=`file initrd.img`
+stype=$(file initrd.img)
 echo "type =" > type.cfg
 if [[ $stype != "initrd.img: gzip compressed data"* ]]
 then

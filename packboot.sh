@@ -11,7 +11,8 @@ if [ ! -e $dst.orig ] && [ -e $dst ];then
 fi
 
 abootimg-pack-initrd
-stype=`sed  -n -r -e 's/(type = )(.*)/\2/p' type.cfg `
+[[ $? -eq 0 ]] || exit 0
+stype=$(sed  -n -r -e 's/(type = )(.*)/\2/p' type.cfg)
 if [[ "$stype" == "mtk" ]];then
     echo "type:$stype"
     mkimage initrd.img ROOTFS > xxx.img
@@ -23,13 +24,13 @@ fi
 size="0x100000"
 sed -i -r -e "s/(bootsize = )(0x.*)/\1$size/" bootimg.cfg
 if [ -e dt.img ];then
-    ret=`abootimg --create $dst -f bootimg.cfg -k zImage -r initrd.img --dt dt.img 2>&1 | sed -n -r -e 's/.*\(([0-9]+) vs [0-9]+ bytes\)/\1/p'`
+    ret=$(abootimg --create $dst -f bootimg.cfg -k zImage -r initrd.img --dt dt.img 2>&1 | sed -n -r -e 's/.*\(([0-9]+) vs [0-9]+ bytes\)/\1/p')
 else
-    ret=`abootimg --create $dst -f bootimg.cfg -k zImage -r initrd.img 2>&1 | sed -n -r -e 's/.*\(([0-9]+) vs [0-9]+ bytes\)/\1/p'`
+    ret=$(abootimg --create $dst -f bootimg.cfg -k zImage -r initrd.img 2>&1 | sed -n -r -e 's/.*\(([0-9]+) vs [0-9]+ bytes\)/\1/p')
 fi
 
 if [ ! -z "$ret" ];then
-    size=`printf 0x%x $ret`
+    size=$(printf 0x%x $ret)
     sed -i -r -e "s/(bootsize = )(0x.*)/\1$size/" bootimg.cfg
     if [ -e dt.img ];then
         abootimg --create $dst -f bootimg.cfg -k zImage -r initrd.img --dt dt.img
@@ -38,10 +39,10 @@ if [ ! -z "$ret" ];then
     fi
 fi
 
-signed=`sed  -n -r -e 's/(signed = )(.*)/\2/p' signed.cfg`
+signed=$(sed  -n -r -e 's/(signed = )(.*)/\2/p' signed.cfg)
 if [[ "$signed" == "true" ]];then
     echo signed $signed
-    pagesize=$((`sed  -n -r -e 's/(pagesize = )(0x.*)/\2/p' bootimg.cfg `))
+    pagesize=$(($(sed  -n -r -e 's/(pagesize = )(0x.*)/\2/p' bootimg.cfg )))
     mv -f $dst $dst.nonsecure
     openssl dgst -$TARGET_SHA_TYPE -binary $dst.nonsecure > $dst.$TARGET_SHA_TYPE
     openssl rsautl -sign -in $dst.$TARGET_SHA_TYPE -inkey $PRODUCT_PRIVATE_KEY -out $dst.sig
