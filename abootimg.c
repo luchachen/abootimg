@@ -686,6 +686,23 @@ void update_images(t_abootimg *img)
     abort_printf("%s: updated is too big for the Boot Image (%u vs %u bytes)\n", img->fname, total_size, img->size);
 }
 
+int write_padding(FILE* file, char* padding, unsigned pagesize, unsigned itemsize)
+{
+  unsigned pagemask = pagesize - 1;
+  unsigned count;
+
+  if((itemsize & pagemask) == 0) {
+    return 0;
+  }
+
+  count = pagesize - (itemsize & pagemask);
+
+  if(fwrite(padding, count, 1, file) != count) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
 
 
 void write_bootimg(t_abootimg* img)
@@ -711,7 +728,7 @@ void write_bootimg(t_abootimg* img)
   if (ferror(img->stream))
     abort_perror(img->fname);
 
-  fwrite(padding, psize - sizeof(img->header), 1, img->stream);
+  write_padding(img->stream, padding, psize, sizeof(img->header));
   if (ferror(img->stream))
     abort_perror(img->fname);
 
@@ -720,7 +737,7 @@ void write_bootimg(t_abootimg* img)
     if (ferror(img->stream))
       abort_perror(img->fname);
 
-    fwrite(padding, psize - (img->header.kernel_size % psize), 1, img->stream);
+    write_padding(img->stream, padding, psize, img->header.kernel_size);
     if (ferror(img->stream))
       abort_perror(img->fname);
   }
@@ -733,7 +750,7 @@ void write_bootimg(t_abootimg* img)
     if (ferror(img->stream))
       abort_perror(img->fname);
 
-    fwrite(padding, psize - (img->header.ramdisk_size % psize), 1, img->stream);
+    write_padding(img->stream, padding, psize, img->header.ramdisk_size);
     if (ferror(img->stream))
       abort_perror(img->fname);
   }
@@ -746,7 +763,7 @@ void write_bootimg(t_abootimg* img)
     if (ferror(img->stream))
       abort_perror(img->fname);
 
-    fwrite(padding, psize - (img->header.second_size % psize), 1, img->stream);
+    write_padding(img->stream, padding, psize, img->header.second_size);
     if (ferror(img->stream))
       abort_perror(img->fname);
   }
@@ -759,7 +776,7 @@ void write_bootimg(t_abootimg* img)
     if (ferror(img->stream))
       abort_perror(img->fname);
 
-    fwrite(padding, psize - (img->header.dt_size % psize), 1, img->stream);
+    write_padding(img->stream, padding, psize, img->header.dt_size);
     if (ferror(img->stream))
       abort_perror(img->fname);
   }
