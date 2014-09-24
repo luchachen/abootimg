@@ -4,7 +4,7 @@ CFLAGS=-O3 -Wall
 LDFLAGS= -L .
 LDLIBS=-lblkid -lmincrypt
 
-all: abootimg
+all: abootimg mkimage
 
 libmincrypt.a:
 	make -C libmincrypt
@@ -19,6 +19,8 @@ version.h:
 	fi
 
 abootimg.o: bootimg.h version.h libmincrypt.a
+
+mkimage.o:mkimage.c
 
 clean:
 	make -C libmincrypt clean

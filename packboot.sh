@@ -15,7 +15,7 @@ abootimg-pack-initrd
 stype=$(sed  -n -r -e 's/(type = )(.*)/\2/p' type.cfg)
 if [[ "$stype" == "mtk" ]];then
     echo "type:$stype"
-    mkimage initrd.img ROOTFS > xxx.img
+    mkimage initrd.img ROOTFS 0xFFFFFFFF > xxx.img
     mv xxx.img initrd.img
 
 fi
