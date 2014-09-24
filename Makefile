@@ -24,7 +24,7 @@ mkimage.o:mkimage.c
 
 clean:
 	make -C libmincrypt clean
-	rm -f abootimg *.o version.h libmincrypt.a
+	rm -f abootimg mkimage *.o version.h libmincrypt.a
 
 .PHONY:	clean all
 
