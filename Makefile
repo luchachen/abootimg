@@ -1,15 +1,36 @@
 
 CPPFLAGS=-DHAS_BLKID
 CFLAGS=-O3 -Wall
-LDFLAGS= -L .
-LDLIBS=-lblkid -lmincrypt
+LDLIBS=-lblkid
+CC=gcc
 
-all: abootimg mkimage
+ifneq ($(filter winall,$(MAKECMDGOALS)),)
+CC=i586-mingw32msvc-gcc
+CPPFLAGS=
+LDLIBS=
+endif
 
-libmincrypt.a:
-	make -C libmincrypt
+SRCS=abootimg.c libmincrypt/rsa.c libmincrypt/sha.c
 
-version.h:
+ifneq ($(filter winall,$(MAKECMDGOALS)),)
+SRCS+=getline.c
+EXT=.exe
+endif
+
+OBJS=$(SRCS:.c=.o)
+
+all: ABOOTIMG MKIMAGE
+
+winall:ABOOTIMG MKIMAGE
+
+ABOOTIMG: $(OBJS)
+	$(CC) -o abootimg$(EXT) $(OBJS) $(LDLIBS)
+
+MKIMAGE:mkimage.o
+	$(CC) -o mkimage$(EXT) $<
+
+
+version:
 	if [ ! -f version.h ]; then \
 	if [ -d .git ]; then \
 	echo '#define VERSION_STR "$(shell git describe --tags --abbrev=0)"' > version.h; \
@@ -18,13 +39,13 @@ version.h:
 	fi \
 	fi
 
-abootimg.o: bootimg.h version.h libmincrypt.a
+%.o: %.c version
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@ -I .
 
 mkimage.o:mkimage.c
 
 clean:
-	make -C libmincrypt clean
-	rm -f abootimg mkimage *.o version.h libmincrypt.a
+	rm -f abootimg mkimage abootimg.exe mkimage.exe *.o version.h  libmincrypt/*.o
 
-.PHONY:	clean all
+.PHONY:	clean all version
 

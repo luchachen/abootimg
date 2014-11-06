@@ -496,9 +496,14 @@ void update_header(t_abootimg* img)
 
   unsigned len = strlen(config_args);
   if (len) {
+#ifndef __MINGW_H
     FILE* config_file = fmemopen(config_args, len, "r");
     if  (!config_file)
       abort_perror("-c args");
+#else
+    FILE* config_file = tmpfile();
+    fwrite(config_args, len, 1, config_file);
+#endif
 
     printf("reading config args\n");
 
