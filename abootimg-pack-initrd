@@ -18,5 +18,5 @@ if [ -f $initrd -a -z "$forcewrite" ]; then
     exit 1
 fi
 
-( cd $ramdisk; find | sort | cpio --quiet -o -H newc ) | gzip > $initrd
+( cd $ramdisk; find | sort | cpio --quiet -o -H newc ) | gzip -9 > $initrd
 
