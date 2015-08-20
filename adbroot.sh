@@ -1,4 +1,8 @@
 #!/bin/bash
+#  author:LuchaChen
+#  email:chenhua.chen@tcl.com
+#  private:lucha.chen@gmail.com
+# 
 echo "start root adb..."
 function patch_adbd()
 {
