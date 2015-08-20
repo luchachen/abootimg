@@ -33,14 +33,17 @@ function patch_setuid()
    
    echo magic:${magic}
    echo -e "${magic}"
+   magic_count=$(echo -e $magic | wc -l)
    #for all match
-   match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | sed -r -n -e '1{N;N;N;N;N;N};H;g' -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
+   #match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | sed -r -n -e '1{N;N;N;N;N;N};H;g' -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
+   echo $magic_count
+   match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | \
+                    sed -r -n -e "1{:k;1,+$(($magic_count -2)){N;b k}};H;g" -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
    
    echo match_line:$match_line_num
    if [[ -n $match_line_num ]];then
      swi='000000ef'
      swi_line=$(echo -e $magic | sed -r -n -e "/$swi/=")
-     magic_count=$(echo -e $magic | wc -l)
      echo swiline:$swi_line magic count $magic_count
      match_line_num=$(($match_line_num - $magic_count + $swi_line - 1))
      echo $match_line_num
@@ -66,8 +69,10 @@ function patch_prctl()
    
    echo magic:${magic}
    echo -e "${magic}"
+   magic_count=$(echo -e $magic | wc -l)
    #for all match
-   match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | sed -r -n -e '1{N;N;N;N;N;N};H;g' -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
+   match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | \
+                    sed -r -n -e "1{:k;1,+$(($magic_count -2)){N;b k}};H;g" -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
    
    echo match_line:$match_line_num
    if [[ -n $match_line_num ]];then
