@@ -54,6 +54,7 @@
 #include "mincrypt/sha.h"
 #include "version.h"
 #include "bootimg.h"
+#include "mkimage.h"
 
 
 enum command {
@@ -70,6 +71,7 @@ typedef struct
 {
   unsigned     size;
   int          is_blkdev;
+  part_hdr_t   mkimage;
 
   char*        fname;
   char*        config_fname;
@@ -379,6 +381,19 @@ void read_header(t_abootimg* img)
   else if (feof(img->stream))
     abort_printf("%s: cannot read image header\n", img->fname);
 
+
+  unsigned page_size  = img->header.page_size;
+  unsigned n = (img->header.kernel_size + page_size - 1) / page_size;
+  fseek(img->stream, (1+n) * page_size, SEEK_SET);
+  rb = fread(&img->mkimage, sizeof(part_hdr_t), 1, img->stream);
+  if ((rb!=1) || ferror(img->stream))
+    abort_perror(img->fname);
+  else if (feof(img->stream))
+    abort_printf("%s: cannot read mkimage header\n", img->fname);
+  if (img->mkimage.info.magic != PART_MAGIC) {
+    memset(&img->mkimage, 0, sizeof(img->mkimage));
+  }
+
   struct stat s;
   int fd = fileno(img->stream);
   if (fstat(fd, &s))
@@ -462,6 +477,9 @@ void update_header_entry(t_abootimg* img, char* cmd)
   }
   else if (!strncmp(token, "tagsaddr", 8)) {
     img->header.tags_addr = valuenum;
+  }
+  else if (!strncmp(token, "ramdiskmagic", 12)) {
+    img->mkimage.info.magic = valuenum;
   }
   else
     goto err;
@@ -751,6 +769,16 @@ void write_bootimg(t_abootimg* img)
     if (fseek(img->stream, (1+n)*psize, SEEK_SET))
       abort_perror(img->fname);
 
+    if (img->mkimage.info.magic == PART_MAGIC) {
+      part_hdr_t part_hdr;
+      memset(&part_hdr, 0xff, sizeof(part_hdr_t));
+
+      part_hdr.info.magic = PART_MAGIC;
+      part_hdr.info.dsize = img->header.ramdisk_size;
+      strncpy(part_hdr.info.name, "ROOTFS", sizeof(part_hdr.info.name));
+      fwrite(&part_hdr, sizeof(part_hdr), 1, img->stream);
+    }
+
     fwrite(img->ramdisk, img->header.ramdisk_size, 1, img->stream);
     if (ferror(img->stream))
       abort_perror(img->fname);
@@ -873,6 +901,7 @@ void write_bootimg_config(t_abootimg* img)
 
   fprintf(config_file, "name = %s\n", img->header.name);
   fprintf(config_file, "cmdline = %s\n", img->header.cmdline);
+  fprintf(config_file, "ramdiskmagic = 0x%x\n", img->mkimage.info.magic);
   
   fclose(config_file);
 }
@@ -919,6 +948,11 @@ void extract_ramdisk(t_abootimg* img)
 
   unsigned n = (ksize + psize - 1) / psize;
   unsigned roffset = (1+n)*psize;
+
+  if (img->mkimage.info.magic == PART_MAGIC) {
+    roffset += sizeof(part_hdr_t);
+    rsize = img->mkimage.info.dsize;
+  }
 
   printf ("extracting ramdisk in %s\n", img->ramdisk_fname);
 
