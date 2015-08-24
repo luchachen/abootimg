@@ -24,23 +24,24 @@ function permissive_adbd()
   fi
 }
 
-function patch_setuid()
+function patch_should_drop_privileges()
 {
-   echo patch_setuid
-   #start sed the adbd
-   #CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
-   #SRC=$HOME/bin/ramdisk/setuid.S
-   #${CROSS_COMPILE}-as -o setuid.o $SRC
-   #magic=$(readelf   -x .text setuid.o  | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
-   magic='07c0a0e1\nd570a0e3\n000000ef\n0c70a0e1\n010a70e3\n1eff2f91\n000060e2'
-   
-   
+   echo patch_should_drop_privileges
+   CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
+   SRC=$HOME/bin/ramdisk/adb.c
+   ${CROSS_COMPILE}-gcc -c  -o adb.o $SRC
+   magic=$(readelf   -x .text adb.o  | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   patch_magic $magic
+}
+
+function patch_magic()
+{
+   magic=$1
    echo magic:${magic}
-   echo -e "${magic}"
+   #echo -e "${magic}"
    magic_count=$(echo -e $magic | wc -l)
    #for all match
-   #match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | sed -r -n -e '1{N;N;N;N;N;N};H;g' -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
-   echo $magic_count
+   #echo $magic_count
    match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | \
                     sed -r -n -e "1{:k;1,+$(($magic_count -2)){N;b k}};H;g" -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
    
@@ -57,6 +58,19 @@ function patch_setuid()
      #d570a0e3
      printf '\xd5\x70\xa0\xe3' | dd of=ramdisk/sbin/adbd bs=1 seek=$address count=4 conv=notrunc
    fi
+}
+
+function patch_setuid()
+{
+   echo patch_setuid
+   #start sed the adbd
+   #CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
+   #SRC=$HOME/bin/ramdisk/setuid.S
+   #${CROSS_COMPILE}-as -o setuid.o $SRC
+   #magic=$(readelf   -x .text setuid.o  | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   magic='07c0a0e1\nd570a0e3\n000000ef\n0c70a0e1\n010a70e3\n1eff2f91\n000060e2'
+   
+   patch_magic $magic
    #end sed the adbd
 }
 
@@ -71,27 +85,7 @@ function patch_prctl()
    magic='0dc0a0e1\nf0002de9\n70009ce8\nac70a0e3\n000000ef\nf000bde8\n010a70e3\n1eff2f91\n000060e2'
    
    
-   echo magic:${magic}
-   echo -e "${magic}"
-   magic_count=$(echo -e $magic | wc -l)
-   #for all match
-   match_line_num=$(hexdump -ve '4/1 "%02x" "\n"' ramdisk/sbin/adbd | \
-                    sed -r -n -e "1{:k;1,+$(($magic_count -2)){N;b k}};H;g" -e "/$magic/{s/\n//g;=;q}" -e 's/^\n[^\n]*//' -e 'h')
-   
-   echo match_line:$match_line_num
-   if [[ -n $match_line_num ]];then
-     swi='000000ef'
-     swi_line=$(echo -e $magic | sed -r -n -e "/$swi/=")
-     magic_count=$(echo -e $magic | wc -l)
-     echo swiline:$swi_line magic count $magic_count
-     match_line_num=$(($match_line_num - $magic_count + $swi_line - 1))
-     echo $match_line_num
-     address=$((($match_line_num)*4))
-     echo addr:$address
-     #d570a0e3
-     printf '\xd5\x70\xa0\xe3' | dd of=ramdisk/sbin/adbd bs=1 seek=$address count=4 conv=notrunc
-   fi
-   #end sed the adbd
+   patch_magic $magic
 }
 
 function patch_prop()
@@ -149,6 +143,7 @@ function patch_cmdline()
 patch_prop
 #patch_cmdline
 patch_adbd
+#patch_should_drop_privileges
 permissive_adbd
 #copy_adbd
 echo "root adb success"
