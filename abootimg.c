@@ -766,6 +766,7 @@ void write_bootimg(t_abootimg* img)
   }
 
   if (img->ramdisk) {
+    unsigned rsize = img->header.ramdisk_size;
     if (fseek(img->stream, (1+n)*psize, SEEK_SET))
       abort_perror(img->fname);
 
@@ -777,13 +778,14 @@ void write_bootimg(t_abootimg* img)
       part_hdr.info.dsize = img->header.ramdisk_size;
       strncpy(part_hdr.info.name, "ROOTFS", sizeof(part_hdr.info.name));
       fwrite(&part_hdr, sizeof(part_hdr), 1, img->stream);
+      rsize += sizeof(part_hdr_t);
     }
 
     fwrite(img->ramdisk, img->header.ramdisk_size, 1, img->stream);
     if (ferror(img->stream))
       abort_perror(img->fname);
 
-    write_padding(img->stream, padding, psize, img->header.ramdisk_size);
+    write_padding(img->stream, padding, psize, rsize);
     if (ferror(img->stream))
       abort_perror(img->fname);
   }
