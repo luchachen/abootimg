@@ -28,11 +28,11 @@ function patch_setuid()
 {
    echo patch_setuid
    #start sed the adbd
-   CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
-   SRC=$HOME/bin/ramdisk/setuid.S
-   ${CROSS_COMPILE}-as -o setuid.o $SRC
-   #readelf -x .text setuid.o 
-   magic=$(readelf   -x .text setuid.o  | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   #CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
+   #SRC=$HOME/bin/ramdisk/setuid.S
+   #${CROSS_COMPILE}-as -o setuid.o $SRC
+   #magic=$(readelf   -x .text setuid.o  | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   magic='07c0a0e1\nd570a0e3\n000000ef\n0c70a0e1\n010a70e3\n1eff2f91\n000060e2'
    
    
    echo magic:${magic}
@@ -64,11 +64,11 @@ function patch_prctl()
 {
    #start sed the adbd
    echo patch_prctl
-   CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
-   SRC=$HOME/bin/ramdisk/prctl.S
-   ${CROSS_COMPILE}-as -o prctl.o $SRC
-   #readelf -x .text prctl.o 
-   magic=$(readelf   -x .text prctl.o | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   #CROSS_COMPILE=${HOME}/work/android/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi
+   #SRC=$HOME/bin/ramdisk/prctl.S
+   #${CROSS_COMPILE}-as -o prctl.o $SRC
+   #magic=$(readelf   -x .text prctl.o | awk ' $1 ~ /0x[0-9a-zA-Z]+/ { i=1; while ( ++i < NF ) printf "%s\\n", $i}  END { print $0 } ' | sed -e '$s/\\n$//')
+   magic='0dc0a0e1\nf0002de9\n70009ce8\nac70a0e3\n000000ef\nf000bde8\n010a70e3\n1eff2f91\n000060e2'
    
    
    echo magic:${magic}
