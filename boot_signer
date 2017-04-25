@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Start-up script for BootSigner
+
+BOOTSIGNER_HOME=`dirname "$0"`
+
+java -Xmx512M -jar "$BOOTSIGNER_HOME"/framework/BootSignature.jar "$@"

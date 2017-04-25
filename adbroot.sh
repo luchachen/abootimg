@@ -3,7 +3,53 @@
 #  email:chenhua.chen@tcl.com
 #  private:lucha.chen@gmail.com
 # 
-echo "start root adb..."
+
+# Absolute path to this script, e.g. /home/user/bin/foo.sh
+SCRIPT=$(readlink -f "$0")
+# Absolute path this script is in, thus /home/user/bin
+SCRIPTPATH=$(dirname "$SCRIPT")
+myprog=$(basename $0)
+
+function absolutepath()
+{
+  echo -n "$(cd -P -- "$(dirname -- "$1")" && pwd -P)"
+}
+
+function version()
+{
+cat<<EOF
+$myprog (GNU $myprog) 1.7.0
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by Lucha Chen/Chunhua Chen.
+EOF
+}
+
+function usage()
+{
+cat<<EOF
+Usage: $myprog [indir]
+'$myprog' take the adb shell and console have root permissive, 
+According to modify the selinux sepolicy and same of property and init.rc.
+
+Examples:
+  $myprog in_boot_dir            # Take root permissive to modify the some 
+                                      of file in dir in_boot_dir.
+  $myprog                        # Take root permissive to modify the some 
+                                      of file in current dir.
+
+Other options:
+  -?, --help                 give this help list
+  -v, --verbose              show command lines being executed.
+      --version              print program version
+
+Report bugs to <lucha.chen@gmail.com,chunhua.chen@tcl.com>.
+EOF
+}
+
 function patch_adbd()
 {
   cp ramdisk/sbin/adbd ./
@@ -13,10 +59,12 @@ function patch_adbd()
 
 function permissive_adbd()
 {
+
+  echo "permissiving adbd and sh... "
   mv ramdisk/sepolicy ./
-  sepolicy-inject -Z adbd -P sepolicy  -o  sepolicy.adbd
-  sepolicy-inject -Z shell -P sepolicy.adbd  -o  ramdisk/sepolicy
-  checkpolicy -M  -b  ramdisk/sepolicy
+  ${SCRIPTPATH}/sepolicy-inject$suffix -Z adbd -P sepolicy  -o  sepolicy.adbd
+  ${SCRIPTPATH}/sepolicy-inject$suffix -Z shell -P sepolicy.adbd  -o  ramdisk/sepolicy
+  ${SCRIPTPATH}/checkpolicy$suffix -M  -b  ramdisk/sepolicy
   if [[ $? -ne 0 ]];
   then
      echo "permissive adbd fail"
@@ -98,12 +146,16 @@ function patch_prop()
    sed -i -r -e 's/(service adbd\s.*)(--root_seclabel=.*)(\s*.*)/\1\3/' \
              -e '/service adbd\s.*/,/seclabel/{/\s*user .*\s*/d;/\s*seclabel .*\s*/i\    user root' -e '}' \
              -e '/service console\s.*/,/seclabel/{/\s*user .*\s*/d;/\s*seclabel .*\s*/i\    user root' -e '}' ramdisk/init.rc || exit 0
+
+   sed -i -r -e 's/(service adbd\s.*)(--root_seclabel=.*)(\s*.*)/\1\3/' \
+             -e '/service adbd\s.*/,/seclabel/{/\s*user .*\s*/d;/\s*seclabel .*\s*/i\    user root' -e '}' \
+             -e '/service console\s.*/,/seclabel/{/\s*user .*\s*/d;/\s*seclabel .*\s*/i\    user root' -e '}' ramdisk/init.usb.rc || exit 0
 }
 
 function copy_adbd()
 {
    #start copy the adbd
-   adbs=(~/bin/ramdisk/sbin/adbd*)
+   adbs=(${SCRIPTPATH}/ramdisk/sbin/adbd*$suffix)
    adbmagic=$(head -c 24 ramdisk/init)
    #echo ${adbs[@]}
    #echo $adbmagic
@@ -111,13 +163,19 @@ function copy_adbd()
    do
      #echo "$i magic:$(head -c 24 $i)"
      if [[ "$(head -c 24 $i)" == "$adbmagic" ]];then
-        #echo "copy $i success"
+        echo "copying $i to ramdisk/sbin/adbd... "
         cp $i ramdisk/sbin/adbd
         echo "root adb success"
         exit 0
         break
      fi
    done
+
+cat<<EOF
+   Fail copying $i ramdisk/sbin/adbd. 
+   Please copy adbd of eng in the project to the directory of ramdisk/sbin/adbd.
+EOF
+   exit 1
    #end copy the adbd
 }
 
@@ -140,10 +198,77 @@ function patch_cmdline()
    #end modify cmdline
 }
 
+#TCL/5095K/pop464g:6.0/MRA58K/v4F12-0:user/release-keys
+function get_android_version()
+{
+  if [[ -f ramdisk/selinux_version ]];then
+    androidversion=$(sed -n -r -e 's:.*/.*/.*\:([0-9]+)\..*:\1:p' ramdisk/selinux_version)
+  else
+    androidversion=4
+  fi
+  echo "The $1 is Android ${androidversion}.0"
+
+  if [[ $androidversion -le 6 ]];then
+      suffix='-6'
+  elif [[ $androidversion -eq 7 ]];then
+      suffix='-7'
+  fi
+}
+
+if ! options=$(getopt -n $0 -o v? -l verbose,help,version -- "$@")
+then
+    # something went wrong, getopt will put out an error message for us
+    usage
+    exit 1
+fi
+
+eval set -- "$options"
+
+VERBOSE=""
+
+while [[ $# -gt 0 ]]
+do
+    case $1 in
+     -v|--verbose) VERBOSE="-v"; shift;;
+     -\?|--help) usage; exit 0;;
+     --version) version; exit 0;;
+     --) shift;break;;
+     -*) echo "$myprog: error - unrecognized option $1" 1>&2; exit 1;;
+     *) break;;
+    esac
+done
+
+indir=${1:-$(pwd -P)}
+
+if [[ $(pwd -P) == $SCRIPTPATH ]];then
+cat<<EOF
+$myprog: You must not work in the $SCRIPTPATH of script path.
+Try '$myprog --help' or '$myprog -?' for more information.
+EOF
+  exit 1
+elif [[ ! -d ${indir}/ramdisk ]] || [[ ! -f ${indir}/var/zImage ]];then
+cat<<EOF
+$myprog: You must specify one of the dir which is extract from Android Boot Image.
+Or current dir which is extract from Android Boot Image.
+Try '$myprog --help' or '$myprog -?' for more information.
+EOF
+  exit 1
+fi
+
+echo "Start root adb..."
+
+#switch to directory of the top ramdisk
+cd ${indir}
+get_android_version
 patch_prop
 #patch_cmdline
-patch_adbd
+#patch_adbd
 #patch_should_drop_privileges
-permissive_adbd
-#copy_adbd
+if [[ $androidversion -ge 5 ]];then
+  permissive_adbd
+fi
+copy_adbd
+
+#END switch back
+cd ${OLDPWD}
 echo "root adb success"
